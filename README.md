@@ -1,0 +1,3 @@
+##Alpha Warhead Override
+
+At Tier 5, SCP-079 can start the detonation sequence for the Alpha Warhead from the surface zone. If SCP-079 is the cause of the nuke detonation, it will not be terminated by it. This allows it to remain on the surface and assist. SCP-079 does not become immune to losing under any circumstance. If SCP-079 detonates the nuke and the SCP’s die on the surface, SCP-079 will be terminated with them.

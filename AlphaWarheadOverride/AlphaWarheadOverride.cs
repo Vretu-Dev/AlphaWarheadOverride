@@ -9,7 +9,7 @@ namespace AlphaWarheadOverride
         public override string Name => "AlphaWarheadOverride";
         public override string Author => "Vretu";
         public override string Prefix => "AWO";
-        public override Version Version => new Version(1, 1, 0);
+        public override Version Version => new Version(1, 0, 0);
         public override Version RequiredExiledVersion { get; } = new Version(9, 6, 0);
         public static Plugin Instance { get; private set; }
         public HeaderSetting SettingsHeader { get; set; } = new HeaderSetting("Alpha Warhead Override");

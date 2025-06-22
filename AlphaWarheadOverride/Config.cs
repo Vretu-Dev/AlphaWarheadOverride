@@ -10,5 +10,6 @@ namespace AlphaWarheadOverride
 
         [Description("Whether or not debug messages should be shown in the console.")]
         public bool Debug { get; set; } = false;
+        public float WarheadCooldown { get; set; } = 60f;
     }
 }

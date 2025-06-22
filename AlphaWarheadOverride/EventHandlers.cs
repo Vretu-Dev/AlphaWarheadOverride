@@ -7,6 +7,7 @@ using Exiled.Events.EventArgs.Warhead;
 using Exiled.API.Features.Roles;
 using PlayerRoles;
 using MEC;
+using UnityEngine;
 
 namespace AlphaWarheadOverride
 {
@@ -14,7 +15,8 @@ namespace AlphaWarheadOverride
     {
         private static Player scp079Detonated = null;
         private static readonly Dictionary<int, bool> KeyWasPressed = new();
-
+        private static readonly Dictionary<int, float> WarheadCooldown = new();
+        private static float WarheadCooldownDuration = Plugin.Instance.Config.WarheadCooldown;
         public static void RegisterEvents()
         {
             Exiled.Events.Handlers.Warhead.Starting += OnWarheadDetonationStarted;
@@ -50,6 +52,21 @@ namespace AlphaWarheadOverride
             if (player.Role is not Scp079Role scp079 || scp079.TierManager.AccessTierLevel != 5 || !player.IsAlive)
                 return;
 
+            if (scp079.Camera.Zone != ZoneType.Surface)
+            {
+                player.ShowHint(Plugin.Instance.Translation.NotOnSurface, 3f);
+                return;
+            }
+
+            float now = Time.time;
+
+            if (WarheadCooldown.TryGetValue(player.Id, out float cooldownUntil) && now < cooldownUntil)
+            {
+                float left = cooldownUntil - now;
+                player.ShowHint(Plugin.Instance.Translation.WarheadCooldown.Replace("{seconds}", left.ToString("F0")), 3f);
+                return;
+            }
+
             if (Warhead.IsDetonated || Warhead.IsInProgress)
             {
                 player.ShowHint(Plugin.Instance.Translation.AlreadyStartedOrDetonated, 3f);
@@ -58,6 +75,7 @@ namespace AlphaWarheadOverride
 
             Warhead.Start();
             scp079Detonated = player;
+            WarheadCooldown[player.Id] = now + WarheadCooldownDuration;
 
             Map.Broadcast(5, Plugin.Instance.Translation.AlphaOverrideBroadcast);
         }

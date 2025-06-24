@@ -1,8 +1,6 @@
-﻿using Exiled.API.Interfaces;
-
-namespace AlphaWarheadOverride
+﻿namespace AlphaWarheadOverride
 {
-    public class Translations : ITranslation
+    public class Translation
     {
         public string AlphaOverrideBroadcast { get; set; } = "<color=red>SCP-079 has initiated the detonation of Alpha Warhead!</color>";
         public string AlreadyStartedOrDetonated { get; set; } = "Alpha Warhead has already been started or detonated!";

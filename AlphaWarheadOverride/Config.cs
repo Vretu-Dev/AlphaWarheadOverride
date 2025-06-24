@@ -1,9 +1,8 @@
-﻿using Exiled.API.Interfaces;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 namespace AlphaWarheadOverride
 {
-    public class Config : IConfig
+    public class Config
     {
         [Description("Whether or not this plugin is enabled.")]
         public bool IsEnabled { get; set; } = true;

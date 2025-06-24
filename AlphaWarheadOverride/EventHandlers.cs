@@ -1,13 +1,14 @@
 ﻿using System.Linq;
 using System.Collections.Generic;
-using Exiled.API.Enums;
-using Exiled.API.Features;
-using Exiled.API.Features.Core.UserSettings;
-using Exiled.Events.EventArgs.Warhead;
-using Exiled.API.Features.Roles;
 using PlayerRoles;
 using MEC;
 using UnityEngine;
+using UserSettings.ServerSpecific;
+using LabApi.Features.Wrappers;
+using LabApi.Events.Arguments.WarheadEvents;
+using MapGeneration;
+using PlayerStatsSystem;
+using PlayerRoles.PlayableScps.Scp079;
 
 namespace AlphaWarheadOverride
 {
@@ -19,80 +20,81 @@ namespace AlphaWarheadOverride
         private static float WarheadCooldownDuration = Plugin.Instance.Config.WarheadCooldown;
         public static void RegisterEvents()
         {
-            Exiled.Events.Handlers.Warhead.Starting += OnWarheadDetonationStarted;
-            Exiled.Events.Handlers.Warhead.Detonated += OnWarheadDetonated;
-            Exiled.Events.Handlers.Warhead.Detonating += OnWarheadDetonating;
+            LabApi.Events.Handlers.WarheadEvents.Starting += OnWarheadDetonationStarted;
+            LabApi.Events.Handlers.WarheadEvents.Detonated += OnWarheadDetonated;
+            LabApi.Events.Handlers.WarheadEvents.Detonating += OnWarheadDetonating;
         }
 
         public static void UnregisterEvents()
         {
-            Exiled.Events.Handlers.Warhead.Starting -= OnWarheadDetonationStarted;
-            Exiled.Events.Handlers.Warhead.Detonated -= OnWarheadDetonated;
-            Exiled.Events.Handlers.Warhead.Detonating -= OnWarheadDetonating;
+            LabApi.Events.Handlers.WarheadEvents.Starting -= OnWarheadDetonationStarted;
+            LabApi.Events.Handlers.WarheadEvents.Detonated -= OnWarheadDetonated;
+            LabApi.Events.Handlers.WarheadEvents.Detonating -= OnWarheadDetonating;
         }
 
-        public static void HandleOverrideKey(Player player, SettingBase setting)
+        public static void HandleOverrideKey(Player player, SSKeybindSetting keybind)
         {
-            if (setting is not KeybindSetting keybind)
-                return;
-
-            bool isPressed = keybind.IsPressed;
-            bool wasPressed = KeyWasPressed.TryGetValue(player.Id, out bool prev) && prev;
+            bool isPressed = keybind.SyncIsPressed;
+            bool wasPressed = KeyWasPressed.TryGetValue(player.PlayerId, out bool prev) && prev;
 
             if (isPressed && !wasPressed)
             {
                 TryStartDetonation(player);
             }
 
-            KeyWasPressed[player.Id] = isPressed;
+            KeyWasPressed[player.PlayerId] = isPressed;
         }
 
         private static void TryStartDetonation(Player player)
         {
-            if (player.Role is not Scp079Role scp079 || scp079.TierManager.AccessTierLevel != 5 || !player.IsAlive)
+            if (player.RoleBase is not Scp079Role scp079 || !scp079.SubroutineModule.TryGetSubroutine<Scp079TierManager>(out var tierManager) || tierManager.AccessTierLevel != 5 || !player.IsAlive)
                 return;
 
-            if (scp079.Camera.Zone != ZoneType.Surface)
+            if (Room.GetRoomAtPosition(scp079.CurrentCamera.Position)?.Zone != FacilityZone.Surface)
             {
-                player.ShowHint(Plugin.Instance.Translation.NotOnSurface, 3f);
+                player.SendHint(Plugin.Instance.Translation.NotOnSurface, 3f);
                 return;
             }
 
             float now = Time.time;
 
-            if (WarheadCooldown.TryGetValue(player.Id, out float cooldownUntil) && now < cooldownUntil)
+            if (WarheadCooldown.TryGetValue(player.PlayerId, out float cooldownUntil) && now < cooldownUntil)
             {
                 float left = cooldownUntil - now;
-                player.ShowHint(Plugin.Instance.Translation.WarheadCooldown.Replace("{seconds}", left.ToString("F0")), 3f);
+                player.SendHint(Plugin.Instance.Translation.WarheadCooldown.Replace("{seconds}", left.ToString("F0")), 3f);
                 return;
             }
 
-            if (Warhead.IsDetonated || Warhead.IsInProgress)
+            if (Warhead.IsDetonated || Warhead.IsDetonationInProgress)
             {
-                player.ShowHint(Plugin.Instance.Translation.AlreadyStartedOrDetonated, 3f);
+                player.SendHint(Plugin.Instance.Translation.AlreadyStartedOrDetonated, 3f);
                 return;
             }
 
             Warhead.Start();
             scp079Detonated = player;
-            WarheadCooldown[player.Id] = now + WarheadCooldownDuration;
+            WarheadCooldown[player.PlayerId] = now + WarheadCooldownDuration;
 
-            Map.Broadcast(5, Plugin.Instance.Translation.AlphaOverrideBroadcast);
+            foreach (var players in Player.List.Where(p => p.IsAlive))
+            {
+                if (!players.IsHost)
+                    players.SendBroadcast(Plugin.Instance.Translation.AlphaOverrideBroadcast, 10);
+            }
         }
 
-        private static void OnWarheadDetonationStarted(StartingEventArgs ev)
+        private static void OnWarheadDetonationStarted(WarheadStartingEventArgs ev)
         {
             if (scp079Detonated != null && scp079Detonated.IsAlive)
-                scp079Detonated.ShowHint(Plugin.Instance.Translation.StartedWarheadSequence, 5f);
+                scp079Detonated.SendHint(Plugin.Instance.Translation.StartedWarheadSequence, 5f);
         }
 
-        private static void OnWarheadDetonating(DetonatingEventArgs ev)
+        private static void OnWarheadDetonating(WarheadDetonatingEventArgs ev)
         {
             if (scp079Detonated != null && scp079Detonated.IsAlive)
                 scp079Detonated.IsGodModeEnabled = true;
         }
 
-        private static void OnWarheadDetonated()
+        private static void OnWarheadDetonated(WarheadDetonatedEventArgs ev)
         {
             if (scp079Detonated != null && scp079Detonated.IsAlive)
             {
@@ -100,11 +102,11 @@ namespace AlphaWarheadOverride
                 
                 Timing.CallDelayed(2f, () =>
                 {
-                    bool anyOtherScpOnSurface = Player.List.Any(p => p.Role.Team == Team.SCPs && p.IsAlive && p.CurrentRoom.Zone == ZoneType.Surface && p != scp079Detonated);
+                    bool anyOtherScpOnSurface = Player.List.Any(p => p.Team == Team.SCPs && p.IsAlive && p.Zone == FacilityZone.Surface && p != scp079Detonated);
 
                     if (!anyOtherScpOnSurface)
                     {
-                        scp079Detonated.Kill(DamageType.Warhead);
+                        scp079Detonated.Kill();
                     }
                 });
                 

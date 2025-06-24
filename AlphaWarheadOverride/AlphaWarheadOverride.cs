@@ -1,35 +1,40 @@
-﻿using System;
-using Exiled.API.Features;
-using Exiled.API.Features.Core.UserSettings;
+﻿using LabApi.Features;
+using LabApi.Loader;
+using LabApi.Loader.Features.Plugins;
+using System;
 
 namespace AlphaWarheadOverride
 {
-    public class Plugin : Plugin<Config, Translations>
+    public class Plugin : Plugin<Config>
     {
         public override string Name => "AlphaWarheadOverride";
         public override string Author => "Vretu";
-        public override string Prefix => "AWO";
+        public override string Description => "Display extra hint like a timers and notifications.";
         public override Version Version => new Version(1, 0, 0);
-        public override Version RequiredExiledVersion { get; } = new Version(9, 6, 0);
+        public override Version RequiredApiVersion { get; } = new Version(LabApiProperties.CompiledVersion);
         public static Plugin Instance { get; private set; }
-        public HeaderSetting SettingsHeader { get; set; } = new HeaderSetting("Alpha Warhead Override");
+        public Translation Translation { get; private set; }
+        //public HeaderSetting SettingsHeader { get; set; } = new HeaderSetting("Alpha Warhead Override");
 
-        public override void OnEnabled()
+        public override void Enable()
         {
             Instance = this;
-            SettingBase.Register(new[] { SettingsHeader });
+            //SettingBase.Register(new[] { SettingsHeader });
             EventHandlers.RegisterEvents();
             ServerSettings.RegisterSettings();
-            base.OnEnabled();
         }
 
-        public override void OnDisabled()
+        public override void Disable()
         {
             Instance = null;
-            SettingBase.Unregister(settings: new[] { SettingsHeader });
+            //SettingBase.Unregister(settings: new[] { SettingsHeader });
             EventHandlers.UnregisterEvents();
             ServerSettings.UnRegisterSettings();
-            base.OnDisabled();
+        }
+        public override void LoadConfigs()
+        {
+            this.TryLoadConfig("translation.yml", out Translation translation);
+            Translation = translation ?? new Translation();
         }
     }
 }
